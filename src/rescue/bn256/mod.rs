@@ -292,12 +292,63 @@ mod test {
     fn output_bn256_rescue_hash() {
         let rng = &mut XorShiftRng::from_seed([0x3dbe6259, 0x8d313d76, 0x3237db17, 0xe5bc0654]);
         let params = Bn256RescueParams::new_checked_2_into_1();
-        for len in 1..=3 {
-            let input: Vec<Fr> = (0..len).map(|_| rng.gen()).collect();
-            println!("Input = {:?}", input);
-            let output = rescue_hash::<Bn256>(&params, &input[..]);
-            println!("Output = {:?}", output);
+        // for len in 1..=3 {
+        //     let input: Vec<Fr> = (0..len).map(|_| rng.gen()).collect();
+        //     println!("Input = {:?}", input);
+        //     let output = rescue_hash::<Bn256>(&params, &input[..]);
+        //     println!("Output = {:?}", output);
+        // }
+        
+        let input1 = Fr::from_str("0").unwrap();
+        let input2 = Fr::from_str("1").unwrap();
+        let input3 = Fr::from_str("256").unwrap();
+        let input4 = Fr::from_str("17642492793261296610928862576627213855747995719446784582618453118803797069691").unwrap();
+        let input5 = Fr::from_str("16077663243321307622639665211762594531186395868017994630984345243271953339664").unwrap();
+        let input6 = Fr::from_str("100000").unwrap();
+        println!("input1 = {:?}", input1.clone());
+        println!("input2 = {:?}", input2.clone());
+        println!("input3 = {:?}", input3.clone());
+        println!("input4 = {:?}", input4.clone());
+        println!("input5 = {:?}", input5.clone());
+        let input = vec![input6, input1];
+        let output = rescue_hash::<Bn256>(&params, &input);
+        println!("Output = {:?}", output);
+        
+        // merkle tree
+    }
+    
+    #[test]
+    fn output_bn256_merkle_tree_root() {
+        let params = Bn256RescueParams::new_checked_2_into_1();
+        let depth = 11;
+        
+        let mut default_node = Vec::new();
+        let input1 = Fr::from_str("0").unwrap();
+        let empty_leaf_hash  = rescue_hash::<Bn256>(&params, &vec![input1, input1])[0].clone();
+        println!("empty hash {:?}", empty_leaf_hash);
+        
+        let mut node_hash = empty_leaf_hash.clone();
+        for i in 0..10 {
+            
+            node_hash = rescue_hash::<Bn256>(&params, &vec![node_hash,node_hash])[0].clone();
+            println!("hash {:?} = {:?}", i+1, node_hash);
+            default_node.push(node_hash);
         }
+    
+    
+        let input6 = Fr::from_str("10000").unwrap();
+        let leaf_hash = rescue_hash::<Bn256>(&params, &vec![input6, input1])[0].clone();
+        println!("leaf_hash {:?}", leaf_hash);
+        
+        let mut node_hash =  rescue_hash::<Bn256>(&params, &vec![empty_leaf_hash, leaf_hash])[0].clone();
+        for i in 0..10 {
+            node_hash = rescue_hash::<Bn256>(&params, &vec![node_hash, default_node[i].clone()])[0].clone();
+            println!("hash {:?} = {:?}", i+1, node_hash);
+            default_node.push(node_hash);
+        }
+        
+        
+        // merkle tree
     }
 
     #[test]

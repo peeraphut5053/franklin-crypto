@@ -894,7 +894,7 @@ mod test {
         }
 
         use crate::bellman::plonk::*;
-        use crate::bellman::worker::Worker;
+        use crate::bellman::multicore_gpu::Worker;
 
         // let mut transpiler = Transpiler::new();
 

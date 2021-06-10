@@ -10,7 +10,7 @@ use crate::bellman::pairing::ff::{
 };
 
 use crate::bellman::SynthesisError;
-use crate::bellman::worker::Worker;
+use crate::bellman::multicore_gpu::Worker;
 use crate::bellman::plonk::better_better_cs::cs::*;
 use crate::bellman::plonk::polynomials::*;
 use crate::bellman::plonk::fft::cooley_tukey_ntt::*;
