@@ -139,7 +139,7 @@ impl<E: Engine> GateInternal<E> for TwoBitDecompositionRangecheckCustomGate {
         omegas_bitreversed: &BitReversedOmegas<E::Fr>,
         _omegas_inv_bitreversed: &OmegasInvBitreversed<E::Fr>,
         worker: &Worker
-    ) -> Result<Polynomial<E::Fr, Values>, SynthesisError> {
+    ) -> Result<Polynomial<E, Values>, SynthesisError> {
         assert!(domain_size.is_power_of_two());
         assert_eq!(challenges.len(), <Self as GateInternal<E>>::num_quotient_terms(&self));
 
@@ -279,7 +279,7 @@ impl<E: Engine> GateInternal<E> for TwoBitDecompositionRangecheckCustomGate {
         _monomials_storage: & AssembledPolynomialStorageForMonomialForms<E>,
         _challenges: &[E::Fr],
         _worker: &Worker
-    ) -> Result<Polynomial<E::Fr, Coefficients>, SynthesisError> {
+    ) -> Result<Polynomial<E, Coefficients>, SynthesisError> {
         unreachable!("this gate does not contribute into linearization");
     }
     fn contribute_into_verification_equation(
