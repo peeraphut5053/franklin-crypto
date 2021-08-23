@@ -32,7 +32,7 @@ use crate::bellman::plonk::better_cs::generator::GeneratorAssembly4WithNextStep 
 use crate::bellman::plonk::better_cs::prover::ProverAssembly as OldProver;
 use crate::bellman::plonk::better_cs::prover::ProverAssembly4WithNextStep as OldActualProver;
 use crate::bellman::plonk::better_cs::verifier::verify;
-use crate::bellman::multicore_gpu::Worker;
+use crate::bellman::worker::Worker;
 use crate::bellman::plonk::commitments::transcript::*;
 use crate::bellman::kate_commitment::*;
 use crate::bellman::plonk::fft::cooley_tukey_ntt::*;
@@ -306,7 +306,7 @@ mod test {
     use crate::bellman::plonk::better_cs::prover::ProverAssembly as OldProver;
     use crate::bellman::plonk::better_cs::prover::ProverAssembly4WithNextStep as OldActualProver;
     use crate::bellman::plonk::better_cs::verifier::verify;
-    use crate::bellman::multicore_gpu::Worker;
+    use crate::bellman::worker::Worker;
     use crate::bellman::plonk::commitments::transcript::*;
     use crate::bellman::kate_commitment::*;
     use crate::bellman::plonk::fft::cooley_tukey_ntt::*;
