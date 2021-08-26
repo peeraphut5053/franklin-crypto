@@ -27,6 +27,7 @@ use super::boolean::{
 };
 
 use std::ops::{Add, Sub};
+use circuit::expression::Expression;
 
 pub struct AllocatedNum<E: Engine> {
     value: Option<E::Fr>,
@@ -320,6 +321,30 @@ impl<E: Engine> AllocatedNum<E> {
         );
 
         Ok(bits.into_iter().map(|b| Boolean::from(b)).collect())
+    }
+
+    /// Return the least `bit_length` bits of the allocated number and whether these bits are its all bits.
+    pub fn safe_into_bits_le_fixed<CS>(
+        &self,
+        mut cs: CS,
+        bit_length: usize,
+    ) -> Result<(Vec<Boolean>, Boolean), SynthesisError>
+        where
+            CS: ConstraintSystem<E>,
+    {
+        assert!(bit_length <= E::Fr::NUM_BITS as usize);
+        let bits = boolean::field_into_allocated_bits_le_fixed(&mut cs, self.value, bit_length)?;
+        let bits: Vec<Boolean> = bits.into_iter().map(|b| Boolean::from(b)).collect();
+
+        let exp = Expression::from_le_bits::<CS>(&bits);
+
+        let success = Boolean::from(Expression::equals(
+            cs.namespace(|| "repack successfully"),
+            exp,
+            self,
+        )?);
+
+        Ok((bits, success))
     }
 
     /// Return allocated number given its bit representation
