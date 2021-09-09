@@ -459,7 +459,7 @@ mod test {
 
         assembly.finalize();
 
-        use crate::bellman::multicore_gpu::Worker;
+        use crate::bellman::worker::Worker;
 
         let worker = Worker::new();
 

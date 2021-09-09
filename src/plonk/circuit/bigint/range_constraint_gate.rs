@@ -2,7 +2,7 @@ use crate::bellman::pairing::Engine;
 
 use crate::bellman::pairing::ff::{BitIterator, Field, PrimeField, PrimeFieldRepr};
 
-use crate::bellman::multicore_gpu::Worker;
+use crate::bellman::worker::Worker;
 use crate::bellman::plonk::better_better_cs::cs::*;
 use crate::bellman::plonk::fft::cooley_tukey_ntt::*;
 use crate::bellman::plonk::polynomials::*;
