@@ -9,6 +9,7 @@ use bellman::{ConstraintSystem, LinearCombination, Namespace, SynthesisError};
 use circuit::boolean;
 use circuit::Assignment;
 use std::ops::{Add, Sub};
+use num_traits::One;
 
 #[derive(Clone)]
 pub struct Expression<E: Engine> {
@@ -137,6 +138,98 @@ impl<E: Engine> Expression<E> {
         cs.enforce(
             || "(a - b) * x == r - 1",
             |zero| zero + &a.lc() - &b.lc(),
+            |zero| zero + x.get_variable(),
+            |zero| zero + r.get_variable() - CS::one(),
+        );
+
+        Ok(r)
+    }
+
+    // returns a==b,
+    // optimized for Plonk gates
+    pub fn equals_plonk<CS, EX1, EX2>(
+        mut cs: CS,
+        a: EX1,
+        b: EX2,
+    ) -> Result<AllocatedBit, SynthesisError>
+        where
+            E: Engine,
+            CS: ConstraintSystem<E>,
+            EX1: Into<Expression<E>>,
+            EX2: Into<Expression<E>>,
+    {
+        // Allocate and constrain `r`: result boolean bit.
+        // It equals `true` if `a` equals `b`, `false` otherwise
+        let a: Expression<E> = a.into();
+        let b: Expression<E> = b.into();
+        let r_value = match (a.get_value(), b.get_value()) {
+            (Some(a), Some(b)) => Some(a == b),
+            _ => None,
+        };
+
+        let r = AllocatedBit::alloc(cs.namespace(|| "r"), r_value)?;
+
+        // Let `delta = a - b`
+
+        let delta_value = match (a.get_value(), b.get_value()) {
+            (Some(a), Some(b)) => {
+                // return (a - b)
+                let mut a = a;
+                a.sub_assign(&b);
+                Some(a)
+            }
+            _ => None,
+        };
+
+        let delta = AllocatedNum::alloc(cs.namespace(|| "delta"), || delta_value.grab())?;
+
+        // Constrain allocation:
+        // delta = a - b
+        cs.enforce(
+            || "delta = a - b",
+            |zero| zero + &a.lc() - &b.lc(),
+            |zero| zero + CS::one(),
+            |zero| zero + delta.get_variable(),
+        );
+
+        let x_value = match (delta_value, r_value) {
+            (Some(delta), Some(r)) => {
+                if delta.is_zero() {
+                    Some(E::Fr::one())
+                } else {
+                    let mut mult: E::Fr;
+                    if r {
+                        mult = E::Fr::one();
+                    } else {
+                        mult = E::Fr::zero();
+                    }
+                    mult.sub_assign(&E::Fr::one());
+                    let mut temp = delta.inverse().unwrap();
+                    temp.mul_assign(&mult);
+                    Some(temp)
+                }
+            }
+            _ => None,
+        };
+
+        let x = AllocatedNum::alloc(cs.namespace(|| "x"), || x_value.grab())?;
+
+        // Constrain allocation:
+        // 0 = delta * r
+        // thus if delta != 0 then r == 0
+        cs.enforce(
+            || "0 = delta * r",
+            |zero| zero + delta.get_variable(),
+            |zero| zero + r.get_variable(),
+            |zero| zero,
+        );
+
+        // Constrain:
+        // delta * x == r - 1
+        // and thus `r` is 1 if delta is zero
+        cs.enforce(
+            || "(a - b) * x == r - 1",
+            |zero| zero + delta.get_variable(),
             |zero| zero + x.get_variable(),
             |zero| zero + r.get_variable() - CS::one(),
         );
@@ -623,6 +716,51 @@ mod test {
         }
         assert!(cs.is_satisfied());
         assert_eq!(cs.num_constraints(), 6 * 3 + 1);
+
+        assert_eq!(not_eq.get_value().unwrap(), false);
+        assert_eq!(not_eq2.get_value().unwrap(), false);
+        assert_eq!(eq.get_value().unwrap(), true);
+        assert_eq!(eq2.get_value().unwrap(), true);
+        assert_eq!(eq3.get_value().unwrap(), true);
+        assert_eq!(eq4.get_value().unwrap(), true);
+    }
+
+    #[test]
+    fn test_lc_equals_plonk() {
+        let mut cs = TestConstraintSystem::<Bls12>::new();
+        let bit = AllocatedBit::alloc(cs.namespace(|| "true"), Some(true)).unwrap();
+        let one = AllocatedNum::alloc(cs.namespace(|| "one"), || Ok(Fr::one())).unwrap();
+        let b_true_const = Boolean::constant(true);
+        let one_const = Expression::constant::<TestConstraintSystem<Bls12>>(Fr::one());
+
+        let a =
+            AllocatedNum::alloc(cs.namespace(|| "a"), || Ok(Fr::from_str("10").unwrap())).unwrap();
+        let b =
+            AllocatedNum::alloc(cs.namespace(|| "b"), || Ok(Fr::from_str("12").unwrap())).unwrap();
+        let c =
+            AllocatedNum::alloc(cs.namespace(|| "c"), || Ok(Fr::from_str("10").unwrap())).unwrap();
+
+        let d = Num::zero();
+        let d = d.add_number_with_coeff(&one, Fr::from_str("10").unwrap());
+
+        let not_eq = Expression::equals_plonk(cs.namespace(|| "not_eq"), &a, &b).unwrap();
+        let not_eq2 = Expression::equals_plonk(cs.namespace(|| "eq a bit_true"), &bit, &a).unwrap();
+
+        let eq = Expression::equals_plonk(cs.namespace(|| "eq"), &a, &c).unwrap();
+        let eq2 = Expression::equals_plonk(cs.namespace(|| "eq a d"), &a, &d).unwrap();
+        let eq3 = Expression::equals_plonk(cs.namespace(|| "eq one bit_true"), &bit, &one).unwrap();
+        let eq4 = Expression::equals_plonk(
+            cs.namespace(|| "eq one_const b_true_const"),
+            Expression::boolean::<TestConstraintSystem<Bls12>>(b_true_const),
+            Expression::constant::<TestConstraintSystem<Bls12>>(Fr::one()),
+        )
+            .unwrap();
+        let err = cs.which_is_unsatisfied();
+        if err.is_some() {
+            panic!("ERROR satisfying in {}", err.unwrap());
+        }
+        assert!(cs.is_satisfied());
+        assert_eq!(cs.num_constraints(), 6 * 4 + 1);
 
         assert_eq!(not_eq.get_value().unwrap(), false);
         assert_eq!(not_eq2.get_value().unwrap(), false);
